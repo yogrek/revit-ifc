@@ -50,7 +50,7 @@ namespace Revit.IFC.Export.Exporter
       {
          CurveElementType curveElementType = curveElement.CurveElementType;
          bool exported = false;
-         if (curveElementType == CurveElementType.ModelCurve || curveElementType == CurveElementType.CurveByPoints)
+         if (curveElementType == CurveElementType.ModelCurve || curveElementType == CurveElementType.CurveByPoints || curveElementType == CurveElementType.RoomSeparation)
             exported = true;
 
          if (exported)
@@ -185,20 +185,46 @@ namespace Revit.IFC.Export.Exporter
                HashSet<IFCAnyHandle> curveSet = new HashSet<IFCAnyHandle>(curves);
                IFCAnyHandle repItemHnd = IFCInstanceExporter.CreateGeometricCurveSet(file, curveSet);
 
-               IFCAnyHandle curveStyle = file.CreateStyle(exporterIFC, repItemHnd);
-
-               CurveAnnotationCache annotationCache = ExporterCacheManager.CurveAnnotationCache;
-               IFCAnyHandle curveAnno = annotationCache.GetAnnotation(sketchPlane.Id, curveStyle);
-               if (!IFCAnyHandleUtil.IsNullOrHasNoValue(curveAnno))
+               // if we have room separation line, need to export this as IfcVirtualElement
+               // and add this to boundary cache
+               if (curveElement.CurveElementType == CurveElementType.RoomSeparation)
                {
-                  AddCurvesToAnnotation(curveAnno, curves);
+                  HashSet<IFCAnyHandle> bodyItems = new HashSet<IFCAnyHandle>() { repItemHnd };
+                  IFCAnyHandle context = exporterIFC.Get3DContextHandle("Axis");
+
+                  IFCAnyHandle shapeRepresentation =
+                     IFCInstanceExporter.CreateShapeRepresentation(file, context, "FootPrint", "GeometricCurveSet", bodyItems);
+                  List<IFCAnyHandle> respresentations = new List<IFCAnyHandle>() { shapeRepresentation };
+
+                  IFCAnyHandle repHnd = IFCInstanceExporter.CreateProductDefinitionShape(file, null, null, respresentations);
+
+                  IFCAnyHandle virtualElementHnd =
+                     IFCInstanceExporter.CreateVirtualElement(file, curveElement, repHnd,
+                        localPlacement);
+
+                  if (!IFCAnyHandleUtil.IsNullOrHasNoValue(virtualElementHnd))
+                  {
+                     SpaceBoundingElementUtil.RegisterSpaceBoundingElementHandle(exporterIFC, virtualElementHnd, curveElement.Id, curveElement.LevelId);
+                  }
                }
                else
                {
-                  curveAnno = CreateCurveAnnotation(exporterIFC, curveElement, curveElement.Category.Id, sketchPlane.Id, curveLCS, curveStyle, setter, localPlacement, repItemHnd);
-                  productWrapper.AddAnnotation(curveAnno, setter.LevelInfo, true);
+                  IFCAnyHandle curveStyle = file.CreateStyle(exporterIFC, repItemHnd);
 
-                  annotationCache.AddAnnotation(sketchPlane.Id, curveStyle, curveAnno);
+                  CurveAnnotationCache annotationCache = ExporterCacheManager.CurveAnnotationCache;
+                  IFCAnyHandle curveAnno = annotationCache.GetAnnotation(sketchPlane.Id, curveStyle);
+                  if (!IFCAnyHandleUtil.IsNullOrHasNoValue(curveAnno))
+                  {
+                     AddCurvesToAnnotation(curveAnno, curves);
+                  }
+                  else
+                  {
+                     curveAnno = CreateCurveAnnotation(exporterIFC, curveElement, curveElement.Category.Id,
+                        sketchPlane.Id, curveLCS, curveStyle, setter, localPlacement, repItemHnd);
+                     productWrapper.AddAnnotation(curveAnno, setter.LevelInfo, true);
+
+                     annotationCache.AddAnnotation(sketchPlane.Id, curveStyle, curveAnno);
+                  }
                }
             }
             transaction.Commit();

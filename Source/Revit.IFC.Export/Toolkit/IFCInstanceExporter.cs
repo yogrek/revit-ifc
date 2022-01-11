@@ -8417,6 +8417,32 @@ namespace Revit.IFC.Export.Toolkit
          return coordinateReferenceSystem;
       }
 
+      /// <summary>
+      /// Create IfcVirtualElement
+      /// </summary>
+      /// <param name="file">The File</param>
+      /// <param name="element">Revit element</param>
+      /// <param name="representation">Product representation handle</param>
+      /// <param name="objectPlacement">Local placement</param>
+      /// <returns></returns>
+      public static IFCAnyHandle CreateVirtualElement(IFCFile file, Element element, IFCAnyHandle representation,
+         IFCAnyHandle objectPlacement)
+      {
+         IFCAnyHandleUtil.ValidateSubTypeOf(objectPlacement, false, IFCEntityType.IfcLocalPlacement);
+         IFCAnyHandleUtil.ValidateSubTypeOf(representation, false, IFCEntityType.IfcProductRepresentation);
+
+         IFCAnyHandle virtualElement = CreateInstance(file, IFCEntityType.IfcVirtualElement, element);
+         IFCAnyHandle ownerHistory = ExporterCacheManager.OwnerHistoryHandle;
+
+         ExporterUtil.SetGlobalId(virtualElement, GUIDUtil.CreateGUID());
+
+         IFCAnyHandleUtil.SetAttribute(virtualElement, "OwnerHistory", ownerHistory);
+         IFCAnyHandleUtil.SetAttribute(virtualElement, "ObjectPlacement", objectPlacement);
+         IFCAnyHandleUtil.SetAttribute(virtualElement, "Representation", representation);
+
+         return virtualElement;
+      }
+
       private static bool IsDeprecatedType(string theEnumType, string validatedString)
       {
          if (ExporterCacheManager.ExportOptionsCache.ExportAsOlderThanIFC4)

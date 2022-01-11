@@ -204,9 +204,7 @@ namespace Revit.IFC.Export.Exporter
                         bool isObjectExt = CategoryUtil.IsElementExternal(boundingElement);
                         bool isObjectPhys = (physOrVirt == IFCPhysicalOrVirtual.Physical);
 
-                        ElementId actualBuildingElemId = isObjectPhys ? buildingElemId : ElementId.InvalidElementId;
-
-                        SpaceBoundary spaceBoundary = new SpaceBoundary(spatialElement.Id, actualBuildingElemId, setter.LevelId, !IFCAnyHandleUtil.IsNullOrHasNoValue(connectionGeometry) ? connectionGeometry : null,
+                        SpaceBoundary spaceBoundary = new SpaceBoundary(spatialElement.Id, buildingElemId, setter.LevelId, !IFCAnyHandleUtil.IsNullOrHasNoValue(connectionGeometry) ? connectionGeometry : null,
                             physOrVirt, isObjectExt ? IFCInternalOrExternal.External : IFCInternalOrExternal.Internal);
 
                         if (!ProcessIFCSpaceBoundary(exporterIFC, spaceBoundary, file))
@@ -755,13 +753,9 @@ namespace Revit.IFC.Export.Exporter
             return false;
 
          IFCPhysicalOrVirtual boundaryType = boundary.SpaceBoundaryType;
-         IFCAnyHandle buildingElemHnd = null;
-         if (boundaryType == IFCPhysicalOrVirtual.Physical)
-         {
-            buildingElemHnd = exporterIFC.FindSpaceBoundingElementHandle(boundary.BuildingElementId, boundary.LevelId);
-            if (IFCAnyHandleUtil.IsNullOrHasNoValue(buildingElemHnd))
-               return false;
-         }
+         IFCAnyHandle buildingElemHnd = exporterIFC.FindSpaceBoundingElementHandle(boundary.BuildingElementId, boundary.LevelId);
+         if (IFCAnyHandleUtil.IsNullOrHasNoValue(buildingElemHnd))
+            return false;
 
          IFCInstanceExporter.CreateRelSpaceBoundary(file, GUIDUtil.CreateGUID(), ExporterCacheManager.OwnerHistoryHandle, spaceBoundaryName, null,
             spatialElemHnd, buildingElemHnd, boundary.ConnectGeometryHandle, boundaryType, boundary.InternalOrExternal);
